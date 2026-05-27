@@ -2,40 +2,66 @@ import React, { useMemo, useCallback } from 'react'
 import { Settings, Trash2, MousePointerClick, ImageDown, FileDown } from 'lucide-react'
 import { useStore } from '../store'
 import type { SeatZone } from '../types'
+import Konva from 'konva'
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v))
 }
 
 function exportZonePNG(zone: SeatZone) {
-  const canvas = document.querySelector('.konvajs-content canvas') as HTMLCanvasElement | null
-  if (!canvas) return
+  const stage = Konva.stages.find(s => s.findOne(`#zone-${zone.id}`))
+  const node = stage?.findOne(`#zone-${zone.id}`)
+  if (!stage || !node) return
 
-  const st = useStore.getState()
-  const pr = window.devicePixelRatio || 1
-  const scale = st.canvasConfig.scale
-  const ox = st.canvasConfig.offsetX
-  const oy = st.canvasConfig.offsetY
+  const padding = 28
+  const host = document.createElement('div')
+  host.style.position = 'fixed'
+  host.style.left = '-10000px'
+  host.style.top = '-10000px'
+  document.body.appendChild(host)
 
-  const margin = 20
-  const zoneW = zone.cols * (zone.seatWidth + zone.gapX)
-  const zoneH = zone.rows * (zone.seatHeight + zone.gapY)
+  const exportStage = new Konva.Stage({
+    container: host,
+    width: 1,
+    height: 1,
+  })
+  const exportLayer = new Konva.Layer()
+  exportStage.add(exportLayer)
 
-  const srcX = (zone.x * scale + ox - margin) * pr
-  const srcY = (zone.y * scale + oy - margin) * pr
-  const srcW = (zoneW * scale + margin * 2) * pr
-  const srcH = (zoneH * scale + margin * 2) * pr
+  const clonedNode = node.clone({
+    x: 0,
+    y: 0,
+  })
+  exportLayer.add(clonedNode)
 
-  const offscreen = document.createElement('canvas')
-  offscreen.width = srcW * 2
-  offscreen.height = srcH * 2
-  const ctx = offscreen.getContext('2d')!
-  ctx.imageSmoothingEnabled = true
-  ctx.drawImage(canvas, srcX, srcY, srcW, srcH, 0, 0, offscreen.width, offscreen.height)
+  const box = clonedNode.getClientRect({ skipTransform: false })
+  const width = Math.ceil(box.width + padding * 2)
+  const height = Math.ceil(box.height + padding * 2)
+  exportStage.size({ width, height })
+
+  exportLayer.add(new Konva.Rect({
+    x: 0,
+    y: 0,
+    width,
+    height,
+    fill: '#07111f',
+    listening: false,
+  }))
+  clonedNode.position({
+    x: clonedNode.x() - box.x + padding,
+    y: clonedNode.y() - box.y + padding,
+  })
+  clonedNode.moveToTop()
+  exportLayer.draw()
 
   const link = document.createElement('a')
   link.download = `${zone.name}.png`
-  link.href = offscreen.toDataURL('image/png')
+  link.href = exportStage.toDataURL({
+    pixelRatio: 5,
+    mimeType: 'image/png',
+  })
+  exportStage.destroy()
+  host.remove()
   link.click()
 }
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { AppState, SeatZone, generateId, generateSeats, generateSeatsPreserving, ZONE_COLORS } from './types'
-import { applyLetterToZone } from './utils/textPattern'
+import { applyTextToAdaptiveSeats } from './utils/textPattern'
 
 let zoneColorIndex = 0
 
@@ -224,25 +224,7 @@ export const useStore = create<AppState>((set, get) => ({
     zones.forEach((zone, zi) => {
       if (zi >= lettersPerZone.length) return
       const letters = lettersPerZone[zi]
-      const gap = 1
-      const margin = 2
-      const maxLetterW = Math.min(12, Math.floor((zone.cols - margin * 2) / letters.length))
-      const letterWidth = Math.max(2, Math.min(maxLetterW, Math.floor((zone.cols - (letters.length - 1) * gap - margin * 2) / letters.length)))
-      const letterHeight = Math.max(3, Math.min(Math.floor(letterWidth * 1.4), zone.rows - margin * 2))
-      const totalPxWidth = letters.length * letterWidth + (letters.length - 1) * gap
-      const startCol = Math.floor((zone.cols - totalPxWidth) / 2)
-      const startRow = Math.floor((zone.rows - letterHeight) / 2)
-
-      const occupiedIds = new Set<string>()
-      let colOffset = startCol
-
-      for (const letter of letters) {
-        const ids = applyLetterToZone(
-          zone.seats, letter, colOffset, startRow, letterWidth, letterHeight, zone.cols,
-        )
-        ids.forEach(id => occupiedIds.add(id))
-        colOffset += letterWidth + gap
-      }
+      const occupiedIds = applyTextToAdaptiveSeats(zone.seats, letters)
       occupiedIdsByZone.set(zone.id, occupiedIds)
     })
 

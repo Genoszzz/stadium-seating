@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, Eraser, ImageDown, CircleHelp, Upload, FileDown } from 'lucide-react'
+import { Plus, Eraser, ImageDown, CircleHelp, Upload, FileDown, ClipboardList } from 'lucide-react'
 import { useStore } from '../store'
 import { parseAllZonesMD, generateCanvasMD } from './PropertiesPanel'
 
@@ -33,6 +33,42 @@ export default function Toolbar({ onOpenHelp }: ToolbarProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.download = '排座布局.md'
+    link.href = url
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportTifoList = () => {
+    const zones = useStore.getState().zones
+    const rows = zones.flatMap(zone => {
+      return zone.seats
+        .filter(seat => seat.occupied && !seat.deleted)
+        .sort((a, b) => a.row - b.row || a.col - b.col)
+        .map((seat, index) => ({
+          zone: zone.name,
+          row: seat.row + 1,
+          col: seat.col + 1,
+          seat: `${seat.row + 1}行${seat.col + 1}列`,
+          order: index + 1,
+        }))
+    })
+
+    if (rows.length === 0) {
+      alert('当前没有已占座位可导出')
+      return
+    }
+
+    const headers = ['座位区域', '行', '列', '座位编号', '区域内序号']
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
+    const csv = [
+      headers.map(escapeCsv).join(','),
+      ...rows.map(row => [row.zone, row.row, row.col, row.seat, row.order].map(escapeCsv).join(',')),
+    ].join('\n')
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.download = 'TIFO占座清单.csv'
     link.href = url
     link.click()
     URL.revokeObjectURL(url)
@@ -99,6 +135,9 @@ export default function Toolbar({ onOpenHelp }: ToolbarProps) {
       </button>
       <button className="cyber-btn flex items-center gap-1" onClick={handleExportCanvasMD} title="导出整个画布为MD数据文件">
         <FileDown size={13} /><span className="hidden sm:inline">画布MD</span>
+      </button>
+      <button className="cyber-btn flex items-center gap-1" onClick={handleExportTifoList} title="导出TIFO占座清单CSV">
+        <ClipboardList size={13} /><span className="hidden sm:inline">TIFO清单</span>
       </button>
       <div className="w-px h-5 bg-cyber-border/30 mx-1" />
       <button className="cyber-btn flex items-center gap-1" onClick={onOpenHelp} title="操作教程">

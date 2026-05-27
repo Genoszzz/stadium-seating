@@ -11,6 +11,12 @@ const hexToRgba = (hex: string, a: number): string =>
 
 const snapToGrid = (v: number) => Math.round(v / SNAP) * SNAP
 
+const getZoneBounds = (zone: SeatZone) => {
+  const maxSeatX = Math.max(...zone.seats.map(seat => seat.x + zone.seatWidth), 0)
+  const maxSeatY = Math.max(...zone.seats.map(seat => seat.y + zone.seatHeight), 0)
+  return { width: maxSeatX, height: maxSeatY }
+}
+
 export default function Canvas() {
   const stageContainerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
@@ -263,8 +269,9 @@ const ZoneRenderer = React.memo(function ZoneRenderer({
   const selectedSeatId = useStore(s => s.selectedSeatId)
   const selectedSeatIds = useStore(s => s.selectedSeatIds)
   const setSelectedSeatIds = useStore(s => s.setSelectedSeatIds)
-  const w = zone.cols * (zone.seatWidth + zone.gapX)
-  const h = zone.rows * (zone.seatHeight + zone.gapY)
+  const bounds = getZoneBounds(zone)
+  const w = bounds.width
+  const h = bounds.height
 
   const handleGroupDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     onDragEnd(e.target.x(), e.target.y())
@@ -351,32 +358,56 @@ const ZoneRenderer = React.memo(function ZoneRenderer({
         listening={false}
       />
       {Array.from({ length: zone.rows }, (_, r) => (
-        <Text
-          key={`rowlbl-${r}`}
-          x={-24}
-          y={r * (zone.seatHeight + zone.gapY) + (zone.seatHeight - 9) / 2}
-          text={`${r + 1}`}
-          fontSize={9}
-          fill="#445"
-          fontFamily="Orbitron"
-          align="right"
-          width={20}
-          listening={false}
-        />
+        (() => {
+          const rowSeats = zone.seats.filter(seat => seat.row === r)
+          const firstSeat = rowSeats.reduce((left, seat) => seat.x < left.x ? seat : left, rowSeats[0])
+          const y = (firstSeat?.y ?? r * (zone.seatHeight + zone.gapY)) + (zone.seatHeight - 11) / 2
+          return (
+            <Text
+              key={`rowlbl-${r}`}
+              x={-28}
+              y={y}
+              text={`${r + 1}`}
+              fontSize={11}
+              fill="#b9d7ea"
+              fontFamily="Orbitron"
+              fontStyle="bold"
+              align="right"
+              width={22}
+              shadowColor="#020817"
+              shadowBlur={3}
+              shadowOpacity={0.9}
+              listening={false}
+            />
+          )
+        })()
       ))}
       {Array.from({ length: zone.cols }, (_, c) => (
-        <Text
-          key={`collbl-${c}`}
-          x={c * (zone.seatWidth + zone.gapX) + (zone.seatWidth - 10) / 2}
-          y={-16}
-          text={`${c + 1}`}
-          fontSize={9}
-          fill="#445"
-          fontFamily="Orbitron"
-          align="center"
-          width={10}
-          listening={false}
-        />
+        (() => {
+          const colSeats = zone.seats.filter(seat => seat.col === c)
+          const firstSeat = colSeats.reduce((top, seat) => seat.y < top.y ? seat : top, colSeats[0])
+          const labelWidth = 22
+          const x = (firstSeat?.x ?? c * (zone.seatWidth + zone.gapX)) + (zone.seatWidth - labelWidth) / 2
+          const y = (firstSeat?.y ?? 0) - 18
+          return (
+            <Text
+              key={`collbl-${c}`}
+              x={x}
+              y={y}
+              text={`${c + 1}`}
+              fontSize={10}
+              fill="#b9d7ea"
+              fontFamily="Orbitron"
+              fontStyle="bold"
+              align="center"
+              width={labelWidth}
+              shadowColor="#020817"
+              shadowBlur={3}
+              shadowOpacity={0.9}
+              listening={false}
+            />
+          )
+        })()
       ))}
       {zone.seats.map(seat => {
         const isMultiSelected = selectedSeatIds.has(seat.id)
